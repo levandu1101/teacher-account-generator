@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Immersive Learning – GV Import Generator</title>
+<meta name="description" content="Generate teacher account import CSV files for the Immersive Learning platform."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f6f5f1;--surface:#fff;--surface-2:#f0efe9;--border:#e2dfd6;--border-2:#ccc9be;
+  --accent:#4f46e5;--accent-dim:#eef2ff;--accent-hover:#4338ca;
+  --text:#1c1a17;--text-2:#6b6760;--text-3:#a09d96;
+  --green:#16a34a;--green-dim:#f0fdf4;--green-b:#86efac;
+  --red:#dc2626;--red-dim:#fef2f2;
+  --yellow:#d97706;--yellow-dim:#fffbeb;
+  --r:10px;--rs:6px;
+  --sh:0 1px 3px rgba(0,0,0,.05),0 4px 12px rgba(0,0,0,.04);
+}
+html{font-size:15px;-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+
+.hd{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 0 var(--border)}
+.hd-inner{max-width:980px;margin:0 auto;height:58px;display:flex;align-items:center;gap:.75rem}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.75rem;font-weight:700;letter-spacing:-.5px;flex-shrink:0}
+.hd-title{font-size:.95rem;font-weight:600;letter-spacing:-.02em}
+.hd-sub{font-size:.8rem;color:var(--text-3);margin-left:auto;letter-spacing:.01em}
+
+.main{max-width:980px;margin:0 auto;padding:2rem 1.5rem 6rem}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;margin-bottom:1.25rem}
+.card-head{padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem;background:linear-gradient(180deg,var(--surface),var(--surface-2))}
+.step{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:.78rem;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step.done{background:var(--green)}
+.card-title{font-size:.9rem;font-weight:600;letter-spacing:-.01em}
+.card-tag{font-size:.72rem;font-weight:500;padding:.15rem .55rem;border-radius:20px;margin-left:.5rem}
+.tag-a{background:#dbeafe;color:#1d4ed8}
+.tag-b{background:#dcfce7;color:#166534}
+.card-body{padding:1.25rem 1.5rem}
+
+/* file detected badge */
+.fmt-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .75rem;border-radius:20px;font-size:.78rem;font-weight:500;margin-top:.75rem}
+.fmt-a{background:var(--accent-dim);color:var(--accent);border:1px solid #c7d2fe}
+.fmt-b{background:var(--green-dim);color:var(--green);border:1px solid var(--green-b)}
+
+.dropz{border:2px dashed var(--border-2);border-radius:var(--r);padding:2.5rem 2rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface-2);position:relative}
+.dropz:hover,.dropz.over{border-color:var(--accent);background:var(--accent-dim)}
+.dropz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{width:44px;height:44px;margin:0 auto .875rem;color:var(--text-3)}
+.dropz.over .drop-icon{color:var(--accent)}
+.drop-t1{font-size:.9rem;font-weight:500;margin-bottom:.2rem}
+.drop-t2{font-size:.8rem;color:var(--text-2)}
+.file-ok{display:flex;align-items:center;gap:.75rem;padding:.8rem 1.1rem;background:var(--green-dim);border:1px solid var(--green-b);border-radius:var(--r);font-size:.875rem;margin-top:1rem}
+.file-ok svg{color:var(--green);flex-shrink:0}
+.file-ok-name{font-weight:500}
+.file-ok-meta{font-size:.78rem;color:var(--text-2)}
+.clr-btn{margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;padding:4px;border-radius:4px;line-height:1;transition:color .15s}
+.clr-btn:hover{color:var(--red)}
+
+/* Parsed teachers preview */
+.teachers-preview{margin-top:1rem;border:1px solid var(--border);border-radius:var(--rs);overflow:hidden}
+.tp-head{display:grid;grid-template-columns:80px 1fr 1fr 1fr 120px;gap:0;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.tp-head span,.tp-row span{padding:.35rem .7rem;font-size:.75rem}
+.tp-head span{font-weight:600;color:var(--text-2);letter-spacing:.04em;text-transform:uppercase}
+.tp-row{display:grid;grid-template-columns:80px 1fr 1fr 1fr 120px;border-bottom:1px solid var(--border)}
+.tp-row:last-child{border-bottom:none}
+.tp-row:hover{background:var(--surface-2)}
+.tp-row span{font-size:.78rem;font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp-more{padding:.5rem .75rem;font-size:.75rem;color:var(--text-2);text-align:center;background:var(--surface-2)}
+.badge-pill{display:inline-block;padding:.1em .45em;border-radius:99px;font-size:.7em;font-weight:600;margin-left:.25em;vertical-align:middle}
+.pill-e{background:#dbeafe;color:#1e40af}
+.pill-m{background:#fef9c3;color:#713f12}
+.pill-s{background:#d1fae5;color:#065f46}
+
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:.875rem}
+.ff{display:flex;flex-direction:column;gap:.3rem}
+label{font-size:.78rem;font-weight:500;color:var(--text-2);letter-spacing:.01em}
+input[type=text]{padding:.45rem .75rem;border:1px solid var(--border);border-radius:var(--rs);font-size:.875rem;font-family:inherit;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s,box-shadow .15s}
+input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+input::placeholder{color:var(--text-3)}
+.hint{font-size:.75rem;color:var(--text-3)}
+code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:rgba(0,0,0,.06);padding:.1em .3em;border-radius:3px}
+
+/* username strategy toggle */
+.radio-group{display:flex;flex-direction:column;gap:.4rem}
+.radio-opt{display:flex;align-items:flex-start;gap:.5rem;cursor:pointer}
+.radio-opt input{margin-top:.2rem;accent-color:var(--accent);flex-shrink:0}
+.radio-opt-label{font-size:.83rem;color:var(--text)}
+.radio-opt-sub{font-size:.75rem;color:var(--text-2);margin-top:.1rem}
+
+/* master account section */
+.master-section{margin-top:.875rem;padding:.875rem 1rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--rs)}
+.master-toggle{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.85rem;font-weight:500;user-select:none}
+.master-toggle input{accent-color:var(--accent)}
+.master-fields{margin-top:.75rem;display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+
+.mt-wrap{overflow-x:auto}
+.mt{width:100%;border-collapse:collapse}
+.mt th{text-align:left;font-size:.72rem;font-weight:600;color:var(--text-2);padding:.5rem .75rem;border-bottom:1px solid var(--border);letter-spacing:.04em;text-transform:uppercase;background:var(--surface-2)}
+.mt td{padding:.3rem .4rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.mt tr:last-child td{border-bottom:none}
+.mt-inp{width:100%;padding:.35rem .625rem;border:1px solid var(--border);border-radius:var(--rs);font-size:.83rem;font-family:'JetBrains Mono',monospace;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s,box-shadow .15s}
+.mt-inp:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,70,229,.1)}
+.mt-arrow{text-align:center;color:var(--text-3);font-size:.85rem;white-space:nowrap;padding:0 .25rem}
+.rm-btn{background:none;border:none;color:var(--text-3);cursor:pointer;padding:4px 6px;border-radius:4px;transition:color .15s,background .15s;line-height:1;font-size:.9rem}
+.rm-btn:hover{color:var(--red);background:var(--red-dim)}
+.map-actions{display:flex;gap:.625rem;margin-top:.875rem;flex-wrap:wrap;align-items:center}
+/* hidden mapping section when not needed */
+.mapping-na{padding:.875rem 1rem;background:var(--green-dim);border:1px solid var(--green-b);border-radius:var(--rs);font-size:.83rem;color:#166534;display:none}
+
+.btn{display:inline-flex;align-items:center;gap:.45rem;padding:.45rem .9rem;border-radius:var(--rs);font-size:.835rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border)}
+.btn-secondary:hover:not(:disabled){background:var(--surface-2)}
+.btn-ghost{background:none;color:var(--accent);border-color:transparent;padding-left:0}
+.btn-ghost:hover:not(:disabled){color:var(--accent-hover)}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-success:hover:not(:disabled){background:#15803d}
+.btn-lg{padding:.7rem 1.4rem;font-size:.9rem}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap}
+
+.alert{padding:.7rem 1rem;border-radius:var(--rs);font-size:.83rem;display:flex;align-items:flex-start;gap:.5rem;margin-bottom:1rem}
+.info{background:var(--accent-dim);color:#3730a3;border:1px solid #c7d2fe}
+.warn{background:var(--yellow-dim);color:#92400e;border:1px solid #fde68a}
+
+.preview-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);margin-top:.875rem}
+.pt{width:100%;border-collapse:collapse;font-size:.75rem;white-space:nowrap}
+.pt th{background:var(--surface-2);padding:.45rem .7rem;font-weight:600;text-align:left;border-bottom:1px solid var(--border);color:var(--text-2);font-size:.7rem;letter-spacing:.04em;text-transform:uppercase}
+.pt td{padding:.35rem .7rem;border-bottom:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.73rem}
+.pt tr:last-child td{border-bottom:none}
+.pt tr:hover td{background:var(--surface-2)}
+.ec{color:var(--text-3);font-family:inherit;font-style:italic}
+
+.stats{display:flex;gap:.625rem;flex-wrap:wrap;margin-top:.875rem}
+.chip{display:flex;align-items:center;gap:.35rem;padding:.3rem .7rem;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;font-size:.78rem;color:var(--text-2)}
+.chip strong{color:var(--text);font-weight:600}
+
+.log{background:#1a1917;color:#e5e2da;border-radius:var(--rs);padding:.875rem 1rem;font-size:.78rem;font-family:'JetBrains Mono',monospace;max-height:200px;overflow-y:auto;margin-top:.875rem;display:none}
+.log.show{display:block}
+.lline{line-height:1.8}
+.lok{color:#86efac}.lwarn{color:#fde68a}.lerr{color:#fca5a5}
+.divider{height:1px;background:var(--border);margin:.75rem 0}
+@media(max-width:640px){.fg{grid-template-columns:1fr}.hd-sub{display:none}.master-fields{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <div class="hd-inner">
+    <div class="logo">IMM</div>
+    <span class="hd-title">GV Import Generator</span>
+    <span class="hd-sub">Immersive Learning · Universal Edition</span>
+  </div>
+</header>
+
+<main class="main">
+
+<!-- ─── Step 1: Upload ─────────────────────────────────────── -->
+<div class="card">
+  <div class="card-head">
+    <span class="step" id="s1b">1</span>
+    <span class="card-title">Upload Teacher Excel File</span>
+  </div>
+  <div class="card-body">
+    <div id="dropz" class="dropz">
+      <input type="file" id="file-inp" accept=".xlsx,.xls"/>
+      <svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.4" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
+      </svg>
+      <div class="drop-t1">Drop the school Excel file here, or click to browse</div>
+      <div class="drop-t2">Accepts .xlsx · <em>Danh sách Giáo viên đăng ký tài khoản Immersive Learning</em></div>
+    </div>
+    <div id="file-ok-box" style="display:none"></div>
+    <div id="fmt-box" style="display:none"></div>
+    <div id="teacher-preview-box" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ─── Step 2: Configuration ─────────────────────────────── -->
+<div class="card">
+  <div class="card-head">
+    <span class="step">2</span>
+    <span class="card-title">School Configuration</span>
+  </div>
+  <div class="card-body">
+    <div class="fg">
+      <div class="ff">
+        <label for="cfg-school">School Short Name</label>
+        <input type="text" id="cfg-school" value="SIGMA(TN)" placeholder="e.g. SIGMA(TN), HV(TB)"/>
+        <span class="hint">Used in cohort2 → <code>2026_SIGMA(TN)_7.1</code></span>
+      </div>
+      <div class="ff">
+        <label for="cfg-year">Academic Year</label>
+        <input type="text" id="cfg-year" value="2026" placeholder="e.g. 2026"/>
+      </div>
+      <div class="ff">
+        <label for="cfg-cohort1">Cohort 1 Value</label>
+        <input type="text" id="cfg-cohort1" value="26_IMMERSIVE_TEACHERS"/>
+      </div>
+      <div class="ff">
+        <label for="cfg-group">Teacher Course Group</label>
+        <input type="text" id="cfg-group" value="2026i"/>
+        <span class="hint">group1/3/5 for teacher-side courses</span>
+      </div>
+      <div class="ff">
+        <label for="cfg-pass">Default Password</label>
+        <input type="text" id="cfg-pass" value="123"/>
+      </div>
+    </div>
+
+    <!-- Username strategy -->
+    <div style="margin-top:1rem">
+      <label style="display:block;margin-bottom:.5rem">Username Generation Strategy</label>
+      <div class="radio-group">
+        <label class="radio-opt">
+          <input type="radio" name="uname-strat" value="email-prefix" checked onchange="updateUsernameHint()"/>
+          <div>
+            <div class="radio-opt-label">Email prefix (part before @)</div>
+            <div class="radio-opt-sub">e.g. <code>huyenttt</code> from <code>huyenttt@sigmaschool.edu.vn</code> — best for school emails</div>
+          </div>
+        </label>
+        <label class="radio-opt">
+          <input type="radio" name="uname-strat" value="name-initials" onchange="updateUsernameHint()"/>
+          <div>
+            <div class="radio-opt-label">First name + initials of last name</div>
+            <div class="radio-opt-sub">e.g. <code>trangtttnd</code> from <em>Trần Thị Thục Nữ Đoan</em> + Trang — best for Gmail/Yahoo emails</div>
+          </div>
+        </label>
+        <label class="radio-opt">
+          <input type="radio" name="uname-strat" value="full-email" onchange="updateUsernameHint()"/>
+          <div>
+            <div class="radio-opt-label">Full email address as username</div>
+            <div class="radio-opt-sub">Use the complete email — e.g. <code>doantrang.tttn@gmail.com</code></div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Master account -->
+    <div class="master-section">
+      <label class="master-toggle">
+        <input type="checkbox" id="has-master" onchange="toggleMaster(this.checked)"/>
+        This file has a master/school account (row 1 gets all classes + all subjects)
+      </label>
+      <div class="master-fields" id="master-fields" style="display:none">
+        <div class="ff">
+          <label for="cfg-master">Master Username</label>
+          <input type="text" id="cfg-master" value="sigmaschool"/>
+        </div>
+        <div class="ff" style="align-self:end">
+          <span class="hint" style="font-size:.78rem;color:var(--text-2)">Row 1 in the Excel (Tài khoản cấp tổ) will use this username and be enrolled in every class and all 3 subjects.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Step 3: Class Mapping ──────────────────────────────── -->
+<div class="card" id="mapping-card">
+  <div class="card-head">
+    <span class="step">3</span>
+    <span class="card-title">Class Translation Mapping</span>
+    <span class="card-tag tag-a" id="mapping-needed-tag">Needed for this file</span>
+    <span class="card-tag tag-b" id="mapping-notneeded-tag" style="display:none">Auto-filled from file</span>
+  </div>
+  <div class="card-body">
+    <div id="mapping-na-msg" class="mapping-na">
+      ✓ Classes are already in platform format in this file (e.g. <code>1.3</code>, <code>2.2</code>) — no translation needed.
+      The table below is pre-filled from the file. You can still override if needed.
+    </div>
+    <div class="alert info" id="mapping-alert">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" style="flex-shrink:0;margin-top:2px"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/></svg>
+      <div>
+        Map each school class code to the platform name. Grade ranges like <code>8 - 11</code> expand using this table.
+        Upload a file first, then click <strong>Auto-detect</strong> to pre-fill.
+      </div>
+    </div>
+    <div class="mt-wrap">
+      <table class="mt">
+        <thead>
+          <tr>
+            <th style="width:170px">School Class Code</th>
+            <th style="width:32px"></th>
+            <th style="width:140px">Platform Name</th>
+            <th style="width:55px">Grade</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="mt-body"></tbody>
+      </table>
+    </div>
+    <div class="map-actions">
+      <button class="btn btn-secondary" onclick="addRow()">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg>
+        Add Row
+      </button>
+      <button class="btn btn-secondary" id="auto-btn" onclick="autoDetect()" disabled>
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V3.928a.75.75 0 00-1.5 0v2.43l-.31-.31A7 7 0 003.239 9.187a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd"/></svg>
+        Auto-detect from File
+      </button>
+      <button class="btn btn-ghost" onclick="clearMap()">Clear All</button>
+    </div>
+    <div id="aw" class="alert warn" style="display:none;margin-top:.75rem;margin-bottom:0">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" style="flex-shrink:0;margin-top:2px"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+      <div id="aw-text"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Step 4: Generate ───────────────────────────────────── -->
+<div class="card">
+  <div class="card-head">
+    <span class="step">4</span>
+    <span class="card-title">Preview &amp; Generate</span>
+  </div>
+  <div class="card-body">
+    <div class="btn-row">
+      <button class="btn btn-primary btn-lg" onclick="run(false)">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
+        Preview
+      </button>
+      <button class="btn btn-success btn-lg" id="dl-btn" onclick="run(true)" disabled>
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
+        Download CSV
+      </button>
+    </div>
+    <div id="log" class="log"></div>
+    <div id="parea" style="display:none">
+      <div id="stats" class="stats"></div>
+      <div class="divider"></div>
+      <p style="font-size:.78rem;color:var(--text-2);margin-bottom:.4rem">First 10 rows preview:</p>
+      <div class="preview-wrap"><table class="pt" id="pt"></table></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════
+let teachers  = [];   // normalized teacher records
+let fileFormat = '';  // 'A' = SIGMA-style, 'B' = HV-style (multi-row per class)
+let rowId = 0, mapRows = [];
+
+// ═══════════════════════════════════════════════════════════════════
+// File Upload & Smart Detection
+// ═══════════════════════════════════════════════════════════════════
+const dz = document.getElementById('dropz');
+const fi = document.getElementById('file-inp');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over') });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadFile(f) });
+fi.addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f) });
+
+function loadFile(file) {
+  const rd = new FileReader();
+  rd.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+      const result = smartParse(rows);
+      teachers   = result.teachers;
+      fileFormat = result.format;
+      showFileOk(file.name, teachers.length);
+      showFormatBadge(result);
+      showTeacherPreview();
+      document.getElementById('auto-btn').disabled = false;
+      document.getElementById('s1b').className = 'step done';
+      updateMappingUI(result);
+      logMsg(`Loaded "${file.name}" — ${teachers.length} teacher records (Format: ${fileFormat === 'A' ? 'one-row-per-teacher' : 'multi-row-per-class'})`, 'ok');
+    } catch (err) { logMsg(`Could not read file: ${err.message}`, 'err'); console.error(err); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Smart Parser — detects format and normalises to common structure
+// ═══════════════════════════════════════════════════════════════════
+//
+// Normalised teacher record:
+// {
+//   stt: Number,         -- teacher sequence number
+//   last: String,        -- Họ và tên đệm
+//   first: String,       -- Tên
+//   email: String,
+//   eng: Boolean,
+//   math: Boolean,
+//   sci: Boolean,
+//   classes: [           -- list of { rawCls, eng, math, sci }
+//     { rawCls: '7A1', eng: true, math: false, sci: false },
+//     ...
+//   ]
+// }
+//
+// Format A (SIGMA): one row per teacher, multiple classes in column D
+//   - STT is always present
+//   - Class column has comma-separated list, ranges, or compound specs
+//   - Classes need translation (7A1 → 7.1)
+//
+// Format B (HV): one row per class-assignment, teacher spans multiple rows
+//   - STT only in first row of each teacher block; subsequent rows have null STT
+//   - Each row has exactly ONE class in column D, already in platform format (1.3, 2.2)
+//   - Classes may already be translated (no translation needed)
+//
+// Heuristic detection:
+//   If we find 3+ consecutive data rows where STT is null but email/name is filled → Format B
+
+function smartParse(rows) {
+  // Find header row
+  let headerRow = -1;
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const r = rows[i];
+    if (r && r[0] != null && String(r[0]).trim() === 'STT') { headerRow = i; break; }
+    if (r && r[1] != null && String(r[1]).includes('tên đệm')) { headerRow = i; break; }
+  }
+  const dataStart = headerRow >= 0 ? headerRow + 2 : 8;
+
+  // Collect raw data rows (stop at footer-like rows)
+  const rawRows = [];
+  for (let i = dataStart; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    // Stop at summary rows like "Danh sách này có tổng cộng..."
+    const b = r[1] ? String(r[1]) : '';
+    if (b.includes('Danh sách') || b.includes('HIỆU TRƯỞNG') || b.includes('ký tên')) break;
+    rawRows.push({ r, i });
+  }
+
+  // Detect format
+  // Format B signal: multiple consecutive rows with null STT but valid name+email
+  let nullSttStreak = 0;
+  let hasClassAlreadyTranslated = false;
+  for (const { r } of rawRows) {
+    const stt = r[0];
+    const name = String(r[1] || '').trim();
+    const cls  = String(r[3] || '').trim();
+    if ((stt === null || stt === '') && name) {
+      nullSttStreak++;
+    } else {
+      nullSttStreak = 0;
+    }
+    // Check if class column looks already translated (X.Y pattern)
+    if (/^\d+\.\d+$/.test(cls)) hasClassAlreadyTranslated = true;
+  }
+  const format = (nullSttStreak >= 2) ? 'B' : 'A';
+
+  let teachers;
+  if (format === 'B') {
+    teachers = parseFormatB(rawRows);
+  } else {
+    teachers = parseFormatA(rawRows);
+  }
+
+  return { teachers, format, hasClassAlreadyTranslated };
+}
+
+// Format A: SIGMA-style — one row per teacher, classes in one cell
+function isTrue(v) {
+    if (v === true) return true;
+    if (v === false) return false;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (s === 'false' || s === '0' || s === 'no' || s === '') return false;
+      return true;
+    }
+    return !!v;
+  }
+  function parseFormatA(rawRows) {
+  const out = [];
+  let sttCounter = 0;
+  for (const { r } of rawRows) {
+    const stt = r[0];
+    if (stt === null || stt === '') continue;
+    const sttStr = String(stt).trim().replace(/\.$/, '');
+    if (!/^\d+$/.test(sttStr)) continue;
+    const email = String(r[7] || '').trim();
+    // Allow rows without email (e.g. master account with non-email fields)
+    const clsRaw = String(r[3] || '').trim();
+    sttCounter++;
+    out.push({
+      stt: parseInt(sttStr),
+      last:  String(r[1] || '').trim(),
+      first: String(r[2] || '').trim(),
+      email, clsRaw,
+      eng: isTrue(r[4]),
+      math: isTrue(r[5]),
+      sci: isTrue(r[6]),
+    });
+  }
+  return out;
+}
+
+// Format B: HV-style — multiple rows per teacher, one class per row
+// Rows with null STT belong to the previous teacher
+function parseFormatB(rawRows) {
+  const out = [];
+  let current = null;
+  for (const { r } of rawRows) {
+    const stt    = r[0];
+    const name1  = String(r[1] || '').trim();
+    const name2  = String(r[2] || '').trim();
+    const clsRaw = String(r[3] || '').trim();
+    const email  = String(r[7] || '').trim();
+    const eng = isTrue(r[4]);
+    const math = isTrue(r[5]);
+    const sci = isTrue(r[6]);
+
+    const hasStt = stt !== null && stt !== '' && /^\d+/.test(String(stt).trim());
+
+    if (hasStt) {
+      // New teacher
+      if (current) out.push(current);
+      current = {
+        stt: parseInt(String(stt).trim()),
+        last: name1, first: name2, email,
+        eng, math, sci,
+        clsRaw,  // first class
+        extraClasses: [],  // {rawCls, eng, math, sci}
+      };
+      if (clsRaw) current.extraClasses.push({ rawCls: clsRaw, eng, math, sci });
+    } else if (current && (name1 || clsRaw)) {
+      // Continuation row — additional class for same teacher
+      // Update email if we get it
+      if (email && !current.email) current.email = email;
+      if (clsRaw) current.extraClasses.push({ rawCls: clsRaw, eng, math, sci });
+    }
+  }
+  if (current) out.push(current);
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UI helpers
+// ═══════════════════════════════════════════════════════════════════
+function showFileOk(name, count) {
+  dz.style.display = 'none';
+  const b = document.getElementById('file-ok-box'); b.style.display = 'block';
+  b.innerHTML = `<div class="file-ok">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+    <div><div class="file-ok-name">${esc(name)}</div><div class="file-ok-meta">${count} teacher records detected</div></div>
+    <button class="clr-btn" onclick="clearFile()" title="Remove">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+    </button>
+  </div>`;
+}
+
+function showFormatBadge(result) {
+  const box = document.getElementById('fmt-box'); box.style.display = 'block';
+  const isB = result.format === 'B';
+  box.innerHTML = `<div class="fmt-badge ${isB ? 'fmt-b' : 'fmt-a'}">
+    ${isB
+      ? '✓ Format detected: Multi-row per class (classes already in platform format)'
+      : '✓ Format detected: Single-row per teacher (class translation may be needed)'}
+  </div>`;
+}
+
+function showTeacherPreview() {
+  const box = document.getElementById('teacher-preview-box');
+  if (!teachers.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const preview = teachers.slice(0, 5);
+  const isFmtB = fileFormat === 'B';
+  let rows = '';
+  for (const t of preview) {
+    const classes = isFmtB
+      ? t.extraClasses.map(x => x.rawCls).join(', ')
+      : (t.clsRaw || '');
+    const subjs = [t.eng?'<span class="badge-pill pill-e">E</span>':'',
+                   t.math?'<span class="badge-pill pill-m">M</span>':'',
+                   t.sci?'<span class="badge-pill pill-s">S</span>':''].join('');
+    rows += `<div class="tp-row">
+      <span>#${t.stt}</span>
+      <span title="${esc(t.last)}">${esc(t.last.substring(0,22))}${t.last.length>22?'…':''}</span>
+      <span>${esc(t.first)}</span>
+      <span title="${esc(classes)}">${esc(classes.substring(0,28))}${classes.length>28?'…':''}</span>
+      <span>${subjs}</span>
+    </div>`;
+  }
+  const more = teachers.length > 5 ? `<div class="tp-more">+ ${teachers.length - 5} more teachers…</div>` : '';
+  box.innerHTML = `<div class="teachers-preview" style="margin-top:1rem">
+    <div class="tp-head"><span>#</span><span>Họ và tên đệm</span><span>Tên</span><span>Lớp phụ trách</span><span>Subjects</span></div>
+    ${rows}${more}
+  </div>`;
+}
+
+function updateMappingUI(result) {
+  const isB = result.format === 'B';
+  const needTag = document.getElementById('mapping-needed-tag');
+  const noNeedTag = document.getElementById('mapping-notneeded-tag');
+  const naMsg = document.getElementById('mapping-na-msg');
+  const alert = document.getElementById('mapping-alert');
+  if (isB) {
+    needTag.style.display = 'none'; noNeedTag.style.display = '';
+    naMsg.style.display = 'block'; alert.style.display = 'none';
+    // Auto-fill mapping from detected classes
+    autoDetect();
+  } else {
+    needTag.style.display = ''; noNeedTag.style.display = 'none';
+    naMsg.style.display = 'none'; alert.style.display = 'flex';
+  }
+  // Check if master account exists (STT=1 has no class = master in Format A)
+  if (result.format === 'A') {
+    const first = result.teachers[0];
+    const hasMaster = first && first.stt === 1 && (!first.clsRaw || first.clsRaw === '' || first.clsRaw.toLowerCase().includes('None'));
+    if (hasMaster) {
+      document.getElementById('has-master').checked = true;
+      toggleMaster(true);
+    }
+  }
+}
+
+function updateUsernameHint() {}
+
+function toggleMaster(on) {
+  document.getElementById('master-fields').style.display = on ? 'grid' : 'none';
+}
+
+function clearFile() {
+  teachers = []; fileFormat = '';
+  dz.style.display = '';
+  document.getElementById('file-ok-box').style.display = 'none';
+  document.getElementById('fmt-box').style.display = 'none';
+  document.getElementById('teacher-preview-box').style.display = 'none';
+  fi.value = '';
+  document.getElementById('auto-btn').disabled = true;
+  document.getElementById('s1b').className = 'step';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Class Mapping Table
+// ═══════════════════════════════════════════════════════════════════
+function addRow(raw = '', tr = '', gr = '') {
+  const id = rowId++;
+  const tb = document.getElementById('mt-body');
+  const row = document.createElement('tr'); row.id = `mr-${id}`;
+  row.innerHTML = `
+    <td><input class="mt-inp" value="${esc(raw)}" placeholder="e.g. 7A1 or 1.3" oninput="updRow(${id},'raw',this.value)"/></td>
+    <td class="mt-arrow">→</td>
+    <td><input class="mt-inp" value="${esc(tr)}" placeholder="e.g. 7.1" oninput="updRow(${id},'translated',this.value)"/></td>
+    <td><input class="mt-inp" value="${esc(gr)}" placeholder="7" style="font-family:inherit;text-align:center" oninput="updRow(${id},'grade',this.value)"/></td>
+    <td><button class="rm-btn" onclick="delRow(${id})" title="Remove">✕</button></td>`;
+  tb.appendChild(row);
+  mapRows.push({ id, raw, translated: tr, grade: gr });
+}
+
+function updRow(id, field, val) {
+  const r = mapRows.find(x => x.id === id); if (!r) return;
+  r[field] = val;
+  if (field === 'raw') {
+    // Auto-fill grade from raw code (handles both 7A1 and 7.1 style)
+    const gm = val.match(/^(\d+)/);
+    if (gm) {
+      r.grade = gm[1];
+      const el = document.getElementById(`mr-${id}`);
+      if (el) el.querySelector('td:nth-child(4) input').value = gm[1];
+    }
+    // Auto-suggest translation for XAY style
+    const tmA = val.match(/^(\d+)A(\d+)$/i);
+    if (tmA && !r.translated) {
+      const s = `${tmA[1]}.${tmA[2]}`; r.translated = s;
+      const el = document.getElementById(`mr-${id}`);
+      if (el) el.querySelector('td:nth-child(3) input').value = s;
+    }
+    // If already in X.Y format, self-translate
+    const tmB = val.match(/^(\d+)\.(\d+)$/);
+    if (tmB && !r.translated) {
+      r.translated = val;
+      const el = document.getElementById(`mr-${id}`);
+      if (el) el.querySelector('td:nth-child(3) input').value = val;
+    }
+  }
+}
+
+function delRow(id) { const el = document.getElementById(`mr-${id}`); if (el) el.remove(); mapRows = mapRows.filter(r => r.id !== id); }
+function clearMap() { document.getElementById('mt-body').innerHTML = ''; mapRows = []; rowId = 0; }
+
+function autoDetect() {
+  if (!teachers.length) return;
+  const found = new Set();
+  if (fileFormat === 'B') {
+    // Format B: classes are already in the extraClasses array and in platform format
+    for (const t of teachers) {
+      for (const { rawCls } of t.extraClasses || []) if (rawCls) found.add(rawCls);
+    }
+  } else {
+    // Format A: extract class codes from clsRaw (ignore compound-spec non-class text)
+    for (const t of teachers) {
+      if (t.stt === 1) continue;
+      for (const m of (t.clsRaw || '').matchAll(/\d+A\d+/g)) found.add(m[0]);
+    }
+  }
+  const sorted = [...found].sort((a, b) => {
+    const pa = a.replace(/A/, '.').split('.').map(Number);
+    const pb = b.replace(/A/, '.').split('.').map(Number);
+    return pa[0] - pb[0] || pa[1] - pb[1];
+  });
+  clearMap();
+  for (const code of sorted) {
+    const mA = code.match(/^(\d+)A(\d+)$/);
+    const mB = code.match(/^(\d+)\.(\d+)$/);
+    if (mA)      addRow(code, `${mA[1]}.${mA[2]}`, mA[1]);
+    else if (mB) addRow(code, code, mB[1]);  // already translated
+    else         addRow(code, code, '');
+  }
+  logMsg(`Auto-detected ${sorted.length} class codes from file`, 'ok');
+  if (fileFormat === 'A' && teachers.some(t => /\d+\s*[-–]\s*\d+/.test(t.clsRaw))) {
+    document.getElementById('aw-text').innerHTML =
+      'Some teachers have <strong>grade range specs</strong> (e.g. <code>8 - 11</code>). Ensure all classes in those grades are in the mapping above.';
+    document.getElementById('aw').style.display = 'flex';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Config
+// ═══════════════════════════════════════════════════════════════════
+function cfg() {
+  const uStrat = document.querySelector('input[name="uname-strat"]:checked')?.value || 'email-prefix';
+  return {
+    school:  document.getElementById('cfg-school').value.trim(),
+    year:    document.getElementById('cfg-year').value.trim(),
+    cohort1: document.getElementById('cfg-cohort1').value.trim(),
+    group:   document.getElementById('cfg-group').value.trim(),
+    pass:    document.getElementById('cfg-pass').value.trim(),
+    master:  document.getElementById('cfg-master')?.value.trim() || '',
+    hasMaster: document.getElementById('has-master').checked,
+    uStrat,
+  };
+}
+
+function getMap() {
+  const m = {};
+  for (const r of mapRows) {
+    if (r.raw.trim()) m[r.raw.trim()] = { t: r.translated.trim() || r.raw.trim(), g: parseInt(r.grade) || 0 };
+  }
+  return m;
+}
+
+function byGrade(map) {
+  const bg = {};
+  for (const [raw, info] of Object.entries(map)) {
+    const g = info.g; if (!bg[g]) bg[g] = []; bg[g].push(raw);
+  }
+  return bg;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Username generation
+// ═══════════════════════════════════════════════════════════════════
+function makeUsername(t, strategy) {
+  if (strategy === 'email-prefix') {
+    return t.email.includes('@') ? t.email.split('@')[0] : t.email.toLowerCase().replace(/\s+/g, '');
+  }
+  if (strategy === 'full-email') {
+    return t.email;
+  }
+  // name-initials: firstname (lowercased no diacritics) + initials of lastname words
+  const first = removeDiacritics(t.first).toLowerCase().replace(/\s+/g, '');
+  const lastWords = removeDiacritics(t.last).toLowerCase().trim().split(/\s+/);
+  const initials = lastWords.map(w => w[0] || '').join('');
+  return (first + initials).replace(/[^a-z0-9]/g, '');
+}
+
+function removeDiacritics(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g,'d').replace(/\u0110/g,'D');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Class spec parsing (Format A)
+// ═══════════════════════════════════════════════════════════════════
+function xlat(raw, map) {
+  raw = raw.trim();
+  if (map[raw]) return map[raw].t;
+  // Fallback patterns
+  return raw.replace(/^(\d+)A(\d+)$/, '$1.$2');
+}
+
+function expandSimple(spec, map, bg) {
+  spec = spec.trim(); if (!spec) return [];
+  const rm = spec.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+  if (rm) {
+    const lo = parseInt(rm[1]), hi = parseInt(rm[2]);
+    const res = [];
+    for (let g = lo; g <= hi; g++) if (bg[g]) res.push(...bg[g]);
+    return res;
+  }
+  return spec.split(/[,;\n]+/).map(s => s.trim()).filter(s => /^\d+[A.]\d+$/i.test(s));
+}
+
+function parseCompound(spec, map, bg) {
+  const re = /(Ti\u1ebfng Anh|Khoa h\u1ecdc|To\u00e1n)\s*:/gi;
+  const hits = [...spec.matchAll(re)]; if (!hits.length) return null;
+  const res = {};
+  for (let i = 0; i < hits.length; i++) {
+    const label = hits[i][1], from = hits[i].index + hits[i][0].length;
+    const to = i + 1 < hits.length ? hits[i + 1].index : spec.length;
+    const raw = spec.slice(from, to).trim();
+    const key = /Ti\u1ebfng Anh/i.test(label) ? 'english'
+              : /Khoa h\u1ecdc/i.test(label) ? 'science'
+              : /To\u00e1n/i.test(label) ? 'math' : null;
+    if (key) res[key] = expandSimple(raw, map, bg);
+  }
+  return Object.keys(res).length ? res : null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Course building
+// ═══════════════════════════════════════════════════════════════════
+function c2n(rawOrTranslated, map, c, alreadyTranslated) {
+  const t = alreadyTranslated ? rawOrTranslated : xlat(rawOrTranslated, map);
+  return `${c.year}_${c.school}_${t}`;
+}
+
+function gradeFromC2(c2) {
+  const m = c2.match(/_(\d+)\.\d+/); return m ? parseInt(m[1]) : 0;
+}
+
+function tCourse(s, g, c) { return `${c.year}_IMMERSIVE_${{ english: 'ENGLISH', math: 'MATHS', science: 'SCIENCE' }[s]}_TEACHER_${g}`; }
+function sCourse(s, g, c) { return `${c.year}_IMMERSIVE_${{ english: 'ENGLISH', math: 'MATH', science: 'SCIENCE' }[s]}_${g}`; }
+function sGroup(c2, s) { return c2 + { english: 'E', math: 'M', science: 'S' }[s]; }
+
+function courseBlock(c2, subjs, c) {
+  const g = gradeFromC2(c2), res = [];
+  for (const s of ['english', 'math', 'science']) {
+    if (subjs.includes(s)) res.push(tCourse(s, g, c), c.group, 'student', sCourse(s, g, c), sGroup(c2, s), 'emg_local_teacher');
+    else res.push('', '', '', '', '', '');
+  }
+  return res;
+}
+
+function mkRow(u, f, l, c2, block, c) {
+  return [u, f, l, c.cohort1, c2, c.cohort1, c2, 'emg_local_teacher', c.pass, ...block];
+}
+
+function clsOrd(raw, map) {
+  const info = map[raw]; const g = info ? info.g : parseInt((raw.match(/^(\d+)/) || [0, 0])[1]);
+  // Handle both XAY and X.Y
+  const n = parseInt((raw.match(/[A.](\d+)$/) || [0, 0])[1]);
+  return g * 1000 + n;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Generate rows — handles both formats
+// ═══════════════════════════════════════════════════════════════════
+const HEADERS = ['username','firstname','lastname','cohort1','cohort2',
+  'Institution','Department','sysrole1','password',
+  'course1','group1','role1','course2','group2','role2',
+  'course3','group3','role3','course4','group4','role4',
+  'course5','group5','role5','course6','group6','role6'];
+
+function generateRows(c, map, bg) {
+  const rows = [];
+  const grades = Object.keys(bg).map(Number).sort((a, b) => a - b);
+  const isFmtB = fileFormat === 'B';
+
+  for (const t of teachers) {
+    const isMaster = c.hasMaster && t.stt === 1;
+    const user = isMaster ? c.master : makeUsername(t, c.uStrat);
+    const { first, last } = t;
+
+    // ── Master account: all classes × all subjects ──────────────
+    if (isMaster) {
+      for (const g of grades) for (const raw of (bg[g] || [])) {
+        const c2 = c2n(raw, map, c, isFmtB);
+        rows.push(mkRow(user, first, last, c2, courseBlock(c2, ['english', 'math', 'science'], c), c));
+      }
+      continue;
+    }
+
+    // ── Format B: each extraClass is already one row ────────────
+    if (isFmtB) {
+      // Group by class (a teacher may appear multiple times in extraClasses
+      // but typically each rawCls is unique)
+      const seen = new Set();
+      for (const { rawCls, eng, math, sci } of t.extraClasses) {
+        if (!rawCls || seen.has(rawCls)) continue;
+        seen.add(rawCls);
+        const c2 = c2n(rawCls, map, c, true);
+        const subjs = [];
+        if (eng || t.eng) subjs.push('english');
+        if (math || t.math) subjs.push('math');
+        if (sci || t.sci) subjs.push('science');
+        rows.push(mkRow(user, first, last, c2, courseBlock(c2, subjs, c), c));
+      }
+      continue;
+    }
+
+    // ── Format A: parse class spec from clsRaw ──────────────────
+    const spec = t.clsRaw || '';
+    const compound = parseCompound(spec, map, bg);
+
+    if (compound) {
+      const cm = {};
+      for (const [s, classes] of Object.entries(compound)) {
+        for (const cls of classes) { if (!cm[cls]) cm[cls] = new Set(); cm[cls].add(s); }
+      }
+      for (const raw of Object.keys(cm).sort((a, b) => clsOrd(a, map) - clsOrd(b, map))) {
+        const subjs = [...cm[raw]].sort((a, b) => ['english', 'math', 'science'].indexOf(a) - ['english', 'math', 'science'].indexOf(b));
+        const c2 = c2n(raw, map, c, false);
+        rows.push(mkRow(user, first, last, c2, courseBlock(c2, subjs, c), c));
+      }
+    } else {
+      const classes = expandSimple(spec, map, bg);
+      const subjs = ['english', 'math', 'science'].filter(s => t[s === 'english' ? 'eng' : s === 'science' ? 'sci' : s]);
+      for (const raw of classes) {
+        const c2 = c2n(raw, map, c, false);
+        rows.push(mkRow(user, first, last, c2, courseBlock(c2, subjs, c), c));
+      }
+    }
+  }
+  return rows;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Run
+// ═══════════════════════════════════════════════════════════════════
+function run(download) {
+  const c = cfg(), map = getMap(), bg = byGrade(map);
+  clearLog(); showLog();
+  if (!teachers.length) { logMsg('No teacher data — upload a file first.', 'err'); return; }
+  if (!c.school)        { logMsg('School short name is required.', 'err'); return; }
+  if (!c.year)          { logMsg('Year is required.', 'err'); return; }
+  if (fileFormat === 'A' && !Object.keys(map).length) logMsg('⚠ No class mapping — grade ranges will not expand.', 'warn');
+  logMsg(`Processing ${teachers.length} teacher records [Format ${fileFormat}]…`);
+  let rows;
+  try { rows = generateRows(c, map, bg); }
+  catch (err) { logMsg(`Error: ${err.message}`, 'err'); console.error(err); return; }
+  logMsg(`Generated ${rows.length} rows for ${new Set(rows.map(r => r[0])).size} accounts`, 'ok');
+  if (!rows.length) { logMsg('No rows generated — check your mapping and file.', 'err'); return; }
+
+  document.getElementById('stats').innerHTML = `
+    <div class="chip">&#128196; <strong>${rows.length}</strong> total rows</div>
+    <div class="chip">&#128105;&#8205;&#127979; <strong>${new Set(rows.map(r=>r[0])).size}</strong> accounts</div>
+    <div class="chip">&#128203; <strong>27</strong> columns</div>
+    <div class="chip">&#128292; UTF-8 BOM</div>`;
+
+  let html = '<thead><tr>' + HEADERS.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>';
+  for (const row of rows.slice(0, 10)) {
+    html += '<tr>' + row.map(v => { const s = String(v ?? ''); return s ? `<td>${esc(s)}</td>` : `<td class="ec">—</td>`; }).join('') + '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('pt').innerHTML = html;
+  document.getElementById('parea').style.display = 'block';
+  document.getElementById('dl-btn').disabled = false;
+
+  if (download) {
+    const bom = '\uFEFF';
+    const csv = bom + [HEADERS, ...rows].map(row => row.map(v => {
+      const s = String(v ?? '');
+      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `IMM${c.year.slice(2)} - ${c.school} - Import GV.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    logMsg(`Downloaded: IMM${c.year.slice(2)} - ${c.school} - Import GV.csv`, 'ok');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Log
+// ═══════════════════════════════════════════════════════════════════
+function logMsg(msg, type = '') {
+  const el = document.getElementById('log');
+  const d = document.createElement('div'); d.className = 'lline' + (type ? ' l' + type : '');
+  const t = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  d.textContent = `[${t}] ${msg}`; el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+function showLog()  { document.getElementById('log').classList.add('show'); }
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
