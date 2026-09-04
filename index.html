@@ -756,7 +756,7 @@ function autoDetect() {
     // Format A: extract class codes from clsRaw (ignore compound-spec non-class text)
     for (const t of teachers) {
       if (t.stt === 1) continue;
-      for (const m of (t.clsRaw || '').matchAll(/\d+A\d+/g)) found.add(m[0]);
+      for (const m of (t.clsRaw || '').matchAll(/\d+[A.]\d+/g)) found.add(m[0]);
     }
   }
   const sorted = [...found].sort((a, b) => {
@@ -897,9 +897,9 @@ function courseBlock(c2, subjs, c) {
   return res;
 }
 
-function mkRow(u, f, l, c2, block, c) {
-  return [u, f, l, c.cohort1, c2, c.cohort1, c2, 'emg_local_teacher', c.pass, ...block];
-}
+function mkRow(u, f, l, e, c2, block, c) {
+    return [u, f, l, e || '', c.cohort1, c2, c.cohort1, c2, 'emg_local_teacher', c.pass, ...block];
+  }
 
 function clsOrd(raw, map) {
   const info = map[raw]; const g = info ? info.g : parseInt((raw.match(/^(\d+)/) || [0, 0])[1]);
