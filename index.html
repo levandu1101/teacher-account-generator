@@ -959,9 +959,11 @@ function generateRows(c, map, bg) {
 
     // ── Master account: all classes × all subjects ──────────────
     if (isMaster) {
-      for (const g of grades) for (const raw of (bg[g] || [])) {
+      let firstRow = true;
+        for (const g of grades) for (const raw of (bg[g] || [])) {
         const c2 = c2n(raw, map, c, isFmtB);
-        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, ['english', 'math', 'science'], c), c));
+        rows.push(mkRow(user, first, last, firstRow ? email : '', c2, courseBlock(c2, ['english', 'math', 'science'], c), c));
+          firstRow = false;
       }
       continue;
     }
@@ -971,6 +973,7 @@ function generateRows(c, map, bg) {
       // Group by class (a teacher may appear multiple times in extraClasses
       // but typically each rawCls is unique)
       const seen = new Set();
+        let firstRow = true;
       for (const { rawCls, eng, math, sci } of t.extraClasses) {
         if (!rawCls || seen.has(rawCls)) continue;
         seen.add(rawCls);
@@ -979,7 +982,8 @@ function generateRows(c, map, bg) {
         if (eng || t.eng) subjs.push('english');
         if (math || t.math) subjs.push('math');
         if (sci || t.sci) subjs.push('science');
-        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, subjs, c), c));
+        rows.push(mkRow(user, first, last, firstRow ? email : '', c2, courseBlock(c2, subjs, c), c));
+          firstRow = false;
       }
       continue;
     }
@@ -993,17 +997,21 @@ function generateRows(c, map, bg) {
       for (const [s, classes] of Object.entries(compound)) {
         for (const cls of classes) { if (!cm[cls]) cm[cls] = new Set(); cm[cls].add(s); }
       }
-      for (const raw of Object.keys(cm).sort((a, b) => clsOrd(a, map) - clsOrd(b, map))) {
+      let firstRow = true;
+        for (const raw of Object.keys(cm).sort((a, b) => clsOrd(a, map) - clsOrd(b, map))) {
         const subjs = [...cm[raw]].sort((a, b) => ['english', 'math', 'science'].indexOf(a) - ['english', 'math', 'science'].indexOf(b));
         const c2 = c2n(raw, map, c, false);
-        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, subjs, c), c));
+        rows.push(mkRow(user, first, last, firstRow ? email : '', c2, courseBlock(c2, subjs, c), c));
+          firstRow = false;
       }
     } else {
       const classes = expandSimple(spec, map, bg);
       const subjs = ['english', 'math', 'science'].filter(s => t[s === 'english' ? 'eng' : s === 'science' ? 'sci' : s]);
-      for (const raw of classes) {
+      let firstRow = true;
+        for (const raw of classes) {
         const c2 = c2n(raw, map, c, false);
-        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, subjs, c), c));
+        rows.push(mkRow(user, first, last, firstRow ? email : '', c2, courseBlock(c2, subjs, c), c));
+          firstRow = false;
       }
     }
   }
