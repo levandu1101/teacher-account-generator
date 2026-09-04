@@ -389,7 +389,7 @@ const fi = document.getElementById('file-inp');
             for (let j = 0; j < r.length; j++) {
               const v = String(r[j] || '').toLowerCase().trim();
               if (v === 'email' || v === 'thư điện tử') cEmail = j;
-              if (v === 'username' || v.includes('tài khoản immersive')) cUname = j;
+              if (v === 'username' || v.includes('tài khoản immersive') || v.includes('tên đăng nhập')) cUname = j;
               if (v === 'firstname' || v === 'tên') cTen = j;
               if (v === 'lastname' || v === 'họ' || v.includes('tên đệm') || v.includes('họ và tên')) cHo = j;
             }
