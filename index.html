@@ -7,7 +7,7 @@
 <meta name="description" content="Generate teacher account import CSV files for the Immersive Learning platform."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -178,6 +178,14 @@ code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:rgba(0,0,
     <div id="file-ok-box" style="display:none"></div>
     <div id="fmt-box" style="display:none"></div>
     <div id="teacher-preview-box" style="display:none"></div>
+    <div class="divider" style="margin-top:1.5rem"></div>
+    <label style="display:block;margin-bottom:0.5rem;font-weight:600">Reference File (Optional)</label>
+    <div style="font-size:0.83rem;color:var(--text-2);margin-bottom:0.75rem">Upload last year's teacher list or Users.csv to reuse existing usernames. New teachers will automatically get the cohort suffix (e.g., '26').</div>
+    <div id="ref-dropz" class="dropz" style="padding:1.5rem 1rem">
+      <input type="file" id="ref-inp" accept=".xlsx,.xls,.csv"/>
+      <div class="drop-t1" style="font-size:0.85rem">Drop Reference File (Users.csv or old import) here</div>
+    </div>
+    <div id="ref-ok" class="mapping-na" style="margin-top:1rem;background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;"></div>
   </div>
 </div>
 
@@ -304,6 +312,7 @@ code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:rgba(0,0,
         Auto-detect from File
       </button>
       <button class="btn btn-ghost" onclick="clearMap()">Clear All</button>
+      <button class="btn btn-primary" id="dl-excel-btn" style="background:#eab308; border-color:#ca8a04; color:#000" onclick="run(true, 'excel')" disabled>Download Highlighted Excel</button>
     </div>
     <div id="aw" class="alert warn" style="display:none;margin-top:.75rem;margin-bottom:0">
       <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" style="flex-shrink:0;margin-top:2px"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
@@ -328,6 +337,7 @@ code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:rgba(0,0,
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
         Download CSV
       </button>
+      <button class="btn btn-primary" id="dl-excel-btn" style="background:#eab308; border-color:#ca8a04; color:#000" onclick="run(true, 'excel')" disabled>Download Highlighted Excel</button>
     </div>
     <div id="log" class="log"></div>
     <div id="parea" style="display:none">
@@ -354,6 +364,58 @@ let rowId = 0, mapRows = [];
 // ═══════════════════════════════════════════════════════════════════
 const dz = document.getElementById('dropz');
 const fi = document.getElementById('file-inp');
+
+  let refTeachers = [];
+  let highlightedRows = new Set();
+  let matchCount = 0;
+
+  document.getElementById('ref-inp').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadRefFile(f) });
+  const rdz = document.getElementById('ref-dropz');
+  rdz.addEventListener('dragover', e => { e.preventDefault(); rdz.classList.add('over') });
+  rdz.addEventListener('dragleave', () => rdz.classList.remove('over'));
+  rdz.addEventListener('drop', e => { e.preventDefault(); rdz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadRefFile(f) });
+
+  function loadRefFile(file) {
+    const rd = new FileReader();
+    rd.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        refTeachers = [];
+        for (const sheetName of wb.SheetNames) {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: null });
+          let cEmail = -1, cUname = -1, cHo = -1, cTen = -1, hRow = -1;
+          for (let i = 0; i < Math.min(rows.length, 15); i++) {
+            const r = rows[i]; if (!r) continue;
+            for (let j = 0; j < r.length; j++) {
+              const v = String(r[j] || '').toLowerCase().trim();
+              if (v === 'email' || v === 'thư điện tử') cEmail = j;
+              if (v === 'username' || v.includes('tài khoản immersive')) cUname = j;
+              if (v === 'firstname' || v === 'tên') cTen = j;
+              if (v === 'lastname' || v === 'họ' || v.includes('tên đệm') || v.includes('họ và tên')) cHo = j;
+            }
+            if (cEmail !== -1 || cUname !== -1 || cTen !== -1) { hRow = i; break; }
+          }
+          if (hRow === -1) continue;
+          for (let i = hRow + 1; i < rows.length; i++) {
+            const r = rows[i]; if (!r) continue;
+            const email = cEmail !== -1 ? String(r[cEmail] || '').toLowerCase().trim() : '';
+            const uname = cUname !== -1 ? String(r[cUname] || '').trim() : '';
+            const ten = cTen !== -1 ? String(r[cTen] || '').trim() : '';
+            const ho = cHo !== -1 ? String(r[cHo] || '').trim() : '';
+            if (!uname) continue;
+            const cleanTen = removeDiacritics(ten).toLowerCase().replace(/\s+/g, '');
+            const cleanHo = removeDiacritics(ho).toLowerCase().replace(/\s+/g, '');
+            refTeachers.push({ email, cleanTen, cleanHo, username: uname });
+          }
+        }
+        const okDiv = document.getElementById('ref-ok');
+        okDiv.style.display = 'block';
+        okDiv.innerText = `✓ Loaded ${refTeachers.length} reference teachers for matching.`;
+      } catch (err) { alert("Reference file error: " + err.message); }
+    };
+    rd.readAsArrayBuffer(file);
+  }
+
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over') });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadFile(f) });
@@ -849,7 +911,7 @@ function clsOrd(raw, map) {
 // ═══════════════════════════════════════════════════════════════════
 // Generate rows — handles both formats
 // ═══════════════════════════════════════════════════════════════════
-const HEADERS = ['username','firstname','lastname','cohort1','cohort2',
+const HEADERS = ['username','firstname','lastname','email','cohort1','cohort2',
   'Institution','Department','sysrole1','password',
   'course1','group1','role1','course2','group2','role2',
   'course3','group3','role3','course4','group4','role4',
@@ -862,14 +924,44 @@ function generateRows(c, map, bg) {
 
   for (const t of teachers) {
     const isMaster = c.hasMaster && t.stt === 1;
-    const user = isMaster ? c.master : makeUsername(t, c.uStrat);
-    const { first, last } = t;
+    
+    let user = '';
+    const { first, last, email } = t;
+    const YY_cohort = c.year.slice(-2);
+    
+    if (isMaster) {
+      user = c.master;
+    } else {
+      const cleanTen = removeDiacritics(first).toLowerCase().replace(/\s+/g, '');
+      const cleanHo = removeDiacritics(last).toLowerCase().replace(/\s+/g, '');
+      const cleanEmail = String(email || '').toLowerCase().trim();
+      
+      let matchedRef = null;
+      if (refTeachers.length > 0) {
+        matchedRef = refTeachers.find(r => 
+          (cleanEmail && r.email === cleanEmail) || 
+          (r.cleanTen && r.cleanHo && r.cleanTen === cleanTen && r.cleanHo === cleanHo)
+        );
+      }
+      
+      if (matchedRef) {
+        user = matchedRef.username;
+        matchCount++;
+      } else {
+        user = makeUsername(t, c.uStrat);
+        user = user + YY_cohort;
+      }
+    }
+    
+    const isNew26 = user.endsWith(YY_cohort) && !isMaster;
+
+    
 
     // ── Master account: all classes × all subjects ──────────────
     if (isMaster) {
       for (const g of grades) for (const raw of (bg[g] || [])) {
         const c2 = c2n(raw, map, c, isFmtB);
-        rows.push(mkRow(user, first, last, c2, courseBlock(c2, ['english', 'math', 'science'], c), c));
+        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, ['english', 'math', 'science'], c), c));
       }
       continue;
     }
@@ -887,7 +979,7 @@ function generateRows(c, map, bg) {
         if (eng || t.eng) subjs.push('english');
         if (math || t.math) subjs.push('math');
         if (sci || t.sci) subjs.push('science');
-        rows.push(mkRow(user, first, last, c2, courseBlock(c2, subjs, c), c));
+        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, subjs, c), c));
       }
       continue;
     }
@@ -904,14 +996,14 @@ function generateRows(c, map, bg) {
       for (const raw of Object.keys(cm).sort((a, b) => clsOrd(a, map) - clsOrd(b, map))) {
         const subjs = [...cm[raw]].sort((a, b) => ['english', 'math', 'science'].indexOf(a) - ['english', 'math', 'science'].indexOf(b));
         const c2 = c2n(raw, map, c, false);
-        rows.push(mkRow(user, first, last, c2, courseBlock(c2, subjs, c), c));
+        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, subjs, c), c));
       }
     } else {
       const classes = expandSimple(spec, map, bg);
       const subjs = ['english', 'math', 'science'].filter(s => t[s === 'english' ? 'eng' : s === 'science' ? 'sci' : s]);
       for (const raw of classes) {
         const c2 = c2n(raw, map, c, false);
-        rows.push(mkRow(user, first, last, c2, courseBlock(c2, subjs, c), c));
+        rows.push(mkRow(user, first, last, email, c2, courseBlock(c2, subjs, c), c));
       }
     }
   }
@@ -921,8 +1013,9 @@ function generateRows(c, map, bg) {
 // ═══════════════════════════════════════════════════════════════════
 // Run
 // ═══════════════════════════════════════════════════════════════════
-function run(download) {
+function run(download, format="csv") {
   const c = cfg(), map = getMap(), bg = byGrade(map);
+  matchCount = 0; highlightedRows.clear();
   clearLog(); showLog();
   if (!teachers.length) { logMsg('No teacher data — upload a file first.', 'err'); return; }
   if (!c.school)        { logMsg('School short name is required.', 'err'); return; }
@@ -933,35 +1026,66 @@ function run(download) {
   try { rows = generateRows(c, map, bg); }
   catch (err) { logMsg(`Error: ${err.message}`, 'err'); console.error(err); return; }
   logMsg(`Generated ${rows.length} rows for ${new Set(rows.map(r => r[0])).size} accounts`, 'ok');
+  if (matchCount > 0) logMsg(`Matched and reused existing usernames for ${matchCount} teachers.`, 'ok');
+  
+  const YY_cohort = c.year.slice(-2);
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][0].endsWith(YY_cohort) && rows[i][0] !== c.master) {
+      highlightedRows.add(i);
+    }
+  }
+
   if (!rows.length) { logMsg('No rows generated — check your mapping and file.', 'err'); return; }
 
   document.getElementById('stats').innerHTML = `
     <div class="chip">&#128196; <strong>${rows.length}</strong> total rows</div>
     <div class="chip">&#128105;&#8205;&#127979; <strong>${new Set(rows.map(r=>r[0])).size}</strong> accounts</div>
-    <div class="chip">&#128203; <strong>27</strong> columns</div>
+    <div class="chip">&#128203; <strong>28</strong> columns</div>
     <div class="chip">&#128292; UTF-8 BOM</div>`;
 
   let html = '<thead><tr>' + HEADERS.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>';
-  for (const row of rows.slice(0, 10)) {
-    html += '<tr>' + row.map(v => { const s = String(v ?? ''); return s ? `<td>${esc(s)}</td>` : `<td class="ec">—</td>`; }).join('') + '</tr>';
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const row = rows[i];
+    const bg = highlightedRows.has(i) ? 'background-color: #fef08a;' : '';
+    html += '<tr style="' + bg + '">' + row.map(v => { const s = String(v ?? ''); return s ? `<td>${esc(s)}</td>` : `<td class="ec">—</td>`; }).join('') + '</tr>';
   }
   html += '</tbody>';
   document.getElementById('pt').innerHTML = html;
   document.getElementById('parea').style.display = 'block';
   document.getElementById('dl-btn').disabled = false;
+  document.getElementById('dl-excel-btn').disabled = false;
 
   if (download) {
-    const bom = '\uFEFF';
-    const csv = bom + [HEADERS, ...rows].map(row => row.map(v => {
-      const s = String(v ?? '');
-      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
-    }).join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `IMM${c.year.slice(2)} - ${c.school} - Import GV.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    logMsg(`Downloaded: IMM${c.year.slice(2)} - ${c.school} - Import GV.csv`, 'ok');
+    if (format === 'csv') {
+      const bom = '\uFEFF';
+      const csv = bom + [HEADERS, ...rows].map(row => row.map(v => {
+        const s = String(v ?? '');
+        return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+      }).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `IMM${c.year.slice(-2)} - ${c.school} - Import GV.csv`;
+      a.click(); URL.revokeObjectURL(url);
+      logMsg(`Downloaded: IMM${c.year.slice(-2)} - ${c.school} - Import GV.csv`, 'ok');
+    } else if (format === 'excel') {
+      const ws_data = [HEADERS, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      for (let i = 0; i < rows.length; i++) {
+        if (highlightedRows.has(i)) {
+          const R = i + 1;
+          for (let C = 0; C < HEADERS.length; C++) {
+            const cell_address = XLSX.utils.encode_cell({c: C, r: R});
+            if (!ws[cell_address]) ws[cell_address] = { t: "s", v: "" };
+            ws[cell_address].s = { fill: { fgColor: { rgb: "FFFF00" } } };
+          }
+        }
+      }
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      XLSX.writeFile(wb, `IMM${c.year.slice(-2)} - ${c.school} - Import GV.xlsx`);
+      logMsg(`Downloaded: IMM${c.year.slice(-2)} - ${c.school} - Import GV.xlsx`, 'ok');
+    }
   }
 }
 
