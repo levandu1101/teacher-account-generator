@@ -756,7 +756,7 @@ function autoDetect() {
     // Format A: extract class codes from clsRaw (ignore compound-spec non-class text)
     for (const t of teachers) {
       if (t.stt === 1) continue;
-      for (const m of (t.clsRaw || '').matchAll(/\d+[A.]\d+/g)) found.add(m[0]);
+      for (const m of (t.clsRaw || '').matchAll(/\d+[A\/\.]\d+/g)) found.add(m[0]);
     }
   }
   const sorted = [...found].sort((a, b) => {
@@ -853,7 +853,7 @@ function expandSimple(spec, map, bg) {
     for (let g = lo; g <= hi; g++) if (bg[g]) res.push(...bg[g]);
     return res;
   }
-  return spec.split(/[,;\n]+/).map(s => s.trim()).filter(s => /^\d+[A.]\d+$/i.test(s));
+  return spec.split(/[,;\n]+/).map(s => s.trim()).filter(s => /^\d+[A\/\.]\d+$/i.test(s));
 }
 
 function parseCompound(spec, map, bg) {
